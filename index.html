@@ -99,6 +99,23 @@
       ul { list-style: none; }
 
       /* =========================================
+         UTILITIES (POSITIONING)
+         ========================================= */
+      .relative { position: relative; }
+      .absolute { position: absolute; }
+      .left-3 { left: 0.75rem; }
+      .right-3 { right: 0.75rem; }
+      .top-2\.5 { top: 0.625rem; }
+      .top-1\/2 { top: 50%; }
+      .-translate-y-1\/2 { transform: translateY(-50%); }
+      
+      .pl-10 { padding-left: 2.5rem !important; }
+      .pr-10 { padding-right: 2.5rem !important; }
+      
+      .w-full { width: 100%; }
+      .h-full { height: 100%; }
+
+      /* =========================================
          LOGIN SPECIFIC
          ========================================= */
       .login-bg {
@@ -129,6 +146,23 @@
           position: absolute;
           top: 0; left: 0; right: 0; height: 4px;
           background: linear-gradient(90deg, var(--primary), #8b5cf6);
+      }
+
+      .btn-eye {
+          background: transparent !important;
+          border: none;
+          cursor: pointer;
+          color: #60a5fa; /* Light Blue (Tailwind blue-400 equivalent) */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.2s;
+      }
+      .btn-eye:hover {
+          color: #3b82f6; /* Darker blue on hover */
+      }
+      .input-icon {
+          color: var(--text-muted);
       }
 
       /* =========================================

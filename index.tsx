@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
@@ -7,7 +8,7 @@ import {
   ExternalLink, ChevronLeft, ChevronRight, Printer, Mail, Copy,
   AlertCircle, CheckCircle, DollarSign, BarChart3, PieChart,
   RefreshCw, Calculator, TrendingUp, TrendingDown, Calendar, Lock,
-  ArrowUpRight, ArrowDownRight, Briefcase
+  ArrowUpRight, ArrowDownRight, Briefcase, Eye, EyeOff
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
@@ -57,6 +58,7 @@ const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 
 const Login = ({ onLogin }: { onLogin: () => void }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className="login-bg">
@@ -76,8 +78,21 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
                     <div className="form-group">
                         <label className="text-xs font-semibold uppercase tracking-wide">Senha</label>
                         <div className="relative">
-                            <input type="password" className="form-input" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
-                            <Lock className="absolute right-3 top-2.5 text-gray-400" size={18} />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 input-icon" size={18} />
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                className="form-input pl-10 pr-10" 
+                                placeholder="••••••••" 
+                                value={password} 
+                                onChange={e=>setPassword(e.target.value)}
+                            />
+                            <button 
+                                type="button"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 btn-eye"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
                     </div>
                     <button className="btn btn-primary w-full h-12 font-bold text-base mt-2 shadow-lg" onClick={onLogin}>
