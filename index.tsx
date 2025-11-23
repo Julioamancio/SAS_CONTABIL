@@ -8,7 +8,7 @@ import {
   ExternalLink, ChevronLeft, ChevronRight, Printer, Mail, Copy,
   AlertCircle, CheckCircle, DollarSign, BarChart3, PieChart,
   RefreshCw, Calculator, TrendingUp, TrendingDown, Calendar, Lock,
-  ArrowUpRight, ArrowDownRight, Briefcase, Eye, EyeOff
+  ArrowUpRight, ArrowDownRight, Briefcase, Eye, EyeOff, FolderOpen
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
@@ -41,6 +41,9 @@ const initialDocumentos = [
   { id: 1, cliente_id: 1, tipo: "Contrato Social", descricao: "Contrato de constituição", data_upload: "2023-01-10" },
   { id: 2, cliente_id: 1, tipo: "Alvará", descricao: "Alvará de funcionamento 2023", data_upload: "2023-01-15" },
   { id: 3, cliente_id: 2, tipo: "CCMEI", descricao: "Certificado MEI", data_upload: "2023-02-20" },
+  { id: 4, cliente_id: 3, tipo: "Contrato Social", descricao: "Alteração Contratual", data_upload: "2023-05-12" },
+  { id: 5, cliente_id: 4, tipo: "Alvará", descricao: "Alvará Sanitário", data_upload: "2023-08-01" },
+  { id: 6, cliente_id: 5, tipo: "Balanço", descricao: "Balanço 2022", data_upload: "2023-04-30" },
 ];
 
 const formatDate = (dateStr: string) => {
@@ -297,8 +300,7 @@ const Dashboard = ({ clientes, obrigacoes, setView }: any) => {
   );
 };
 
-// --- CHART COMPONENTS (SVG Based for Zero Dependency) ---
-
+// --- CHART COMPONENTS ---
 const SimpleBarChart = ({ data, color = "#3b82f6" }: { data: { label: string, value: number }[], color?: string }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     return (
@@ -310,10 +312,7 @@ const SimpleBarChart = ({ data, color = "#3b82f6" }: { data: { label: string, va
                         <div className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity mb-1 text-[var(--text-main)] bg-[var(--bg-card)] px-1 rounded shadow border border-[var(--border-color)]">
                             {formatCurrency(d.value)}
                         </div>
-                        <div 
-                            className="w-full rounded-t transition-all duration-500 hover:opacity-80 relative" 
-                            style={{ height: `${height}%`, backgroundColor: color }}
-                        ></div>
+                        <div className="w-full rounded-t transition-all duration-500 hover:opacity-80 relative" style={{ height: `${height}%`, backgroundColor: color }}></div>
                         <span className="text-[10px] sm:text-xs text-muted mt-2 truncate w-full text-center">{d.label}</span>
                     </div>
                 )
@@ -325,39 +324,17 @@ const SimpleBarChart = ({ data, color = "#3b82f6" }: { data: { label: string, va
 const DonutChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
     const total = data.reduce((acc, curr) => acc + curr.value, 0);
     let cumulativeAngle = 0;
-
     return (
         <div className="flex items-center gap-6 flex-wrap justify-center">
             <div className="relative w-40 h-40">
                 <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
                     {data.map((d, i) => {
-                        const percentage = total === 0 ? 0 : (d.value / total) * 100;
-                        const strokeDasharray = `${percentage} 100`;
-                        const offset = cumulativeAngle;
-                        cumulativeAngle -= percentage; // SVG stroke-dashoffset is counter-clockwise, but we rotate chart. Simplified logic:
-                        
-                        // Better approach for SVG segments
-                        const circumference = 2 * Math.PI * 15.9155; // Radius 15.9155 makes circumference ~100
+                        const circumference = 2 * Math.PI * 15.9155;
                         const dashVal = (d.value / total) * circumference;
                         const dashOffset = data.slice(0, i).reduce((acc, curr) => acc + ((curr.value / total) * circumference), 0) * -1;
-
-                        return (
-                            <circle
-                                key={i}
-                                cx="50" cy="50" r="15.9155"
-                                fill="transparent"
-                                stroke={d.color}
-                                strokeWidth="8"
-                                strokeDasharray={`${dashVal} ${circumference}`}
-                                strokeDashoffset={dashOffset}
-                                className="transition-all duration-500 hover:opacity-80"
-                            />
-                        );
+                        return <circle key={i} cx="50" cy="50" r="15.9155" fill="transparent" stroke={d.color} strokeWidth="8" strokeDasharray={`${dashVal} ${circumference}`} strokeDashoffset={dashOffset} className="transition-all duration-500 hover:opacity-80" />;
                     })}
-                    {/* Inner Text */}
-                    <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="var(--text-main)" className="text-[8px] font-bold">
-                         {total} Total
-                    </text>
+                    <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="var(--text-main)" className="text-[8px] font-bold">{total} Total</text>
                 </svg>
             </div>
             <div className="flex flex-col gap-2">
@@ -373,42 +350,39 @@ const DonutChart = ({ data }: { data: { label: string, value: number, color: str
     );
 };
 
-const ReportsView = ({ clientes, obrigacoes }: any) => {
+const ReportsView = ({ clientes, obrigacoes, documentos }: any) => {
+    const [activeTab, setActiveTab] = useState<'financial' | 'documents'>('financial');
+    const [docFilter, setDocFilter] = useState('');
+
     // --- KPI CALCULATIONS ---
     const totalReceita = clientes.reduce((acc:number, c:any) => acc + (c.valor_honorarios || 0), 0);
     const ticketMedio = clientes.length ? totalReceita / clientes.length : 0;
     const inadimplenciaTotal = obrigacoes.filter((o:any) => o.status === 'atrasada' && o.tipo === 'honorario').reduce((acc:number, o:any) => acc + (o.valor || 0), 0);
+    const totalDocs = documentos.length;
     
-    // --- CHART DATA PREPARATION ---
-    // 1. Regimes Tributários (Donut)
-    const regimes = clientes.reduce((acc:any, c:any) => {
-        acc[c.regime_tributario] = (acc[c.regime_tributario] || 0) + 1;
-        return acc;
-    }, {});
-    const dataRegimes = Object.keys(regimes).map((key, i) => ({
-        label: key,
-        value: regimes[key],
-        color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][i % 4]
-    }));
-
-    // 2. Evolução de Receita (Simulada com dados históricos + projeção)
+    // --- CHART DATA ---
+    const regimes = clientes.reduce((acc:any, c:any) => { acc[c.regime_tributario] = (acc[c.regime_tributario] || 0) + 1; return acc; }, {});
+    const dataRegimes = Object.keys(regimes).map((key, i) => ({ label: key, value: regimes[key], color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][i % 4] }));
+    
     const meses = ['Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov'];
-    // Simulando uma variação pequena para parecer real
-    const dataReceita = meses.map((m, i) => ({
-        label: m,
-        value: totalReceita * (0.85 + (i * 0.03) + (Math.random() * 0.05)) // Simula crescimento
-    }));
-
-    // 3. Status Obrigações
-    const statusCount = obrigacoes.reduce((acc:any, o:any) => {
-        acc[o.status] = (acc[o.status] || 0) + 1;
-        return acc;
-    }, {});
+    const dataReceita = meses.map((m, i) => ({ label: m, value: totalReceita * (0.85 + (i * 0.03) + (Math.random() * 0.05)) }));
+    
+    const statusCount = obrigacoes.reduce((acc:any, o:any) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
     const dataStatus = [
         { label: 'Entregue', value: statusCount['entregue'] || 0, color: '#10b981' },
         { label: 'Pendente', value: statusCount['pendente'] || 0, color: '#f59e0b' },
         { label: 'Atrasado', value: statusCount['atrasada'] || 0, color: '#ef4444' }
     ];
+
+    // --- DOCUMENTS DATA JOIN ---
+    const fullDocs = documentos.map((doc:any) => {
+        const cli = clientes.find((c:any) => c.id === doc.cliente_id);
+        return { ...doc, clientName: cli ? cli.nome_fantasia : 'Desconhecido' };
+    }).filter((d:any) => 
+        d.descricao.toLowerCase().includes(docFilter.toLowerCase()) || 
+        d.clientName.toLowerCase().includes(docFilter.toLowerCase()) ||
+        d.tipo.toLowerCase().includes(docFilter.toLowerCase())
+    );
 
     return (
         <div className="flex-col gap-6">
@@ -416,113 +390,119 @@ const ReportsView = ({ clientes, obrigacoes }: any) => {
             <div className="flex justify-between items-center bg-[var(--bg-card)] p-4 rounded-lg border border-[var(--border-color)]">
                 <div>
                     <h1 className="text-xl font-bold">Relatórios Gerenciais</h1>
-                    <p className="text-sm text-muted">Visão 360º do escritório</p>
+                    <p className="text-sm text-muted">Controle e Auditoria</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="btn btn-outline" onClick={()=>window.print()}><Printer size={18}/> Imprimir PDF</button>
+                    <button className="btn btn-outline hidden-mobile" onClick={()=>window.print()}><Printer size={18}/> Imprimir PDF</button>
                     <button className="btn btn-primary"><Download size={18}/> Exportar Excel</button>
                 </div>
             </div>
 
-            {/* SUMMARY CARDS (KPIs) */}
-            <div className="grid-cards">
-                <div className="card p-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-xs font-bold text-muted uppercase">Receita Recorrente (MRR)</p>
-                            <h3 className="text-2xl font-bold mt-1">{formatCurrency(totalReceita)}</h3>
-                        </div>
-                        <div className="p-2 bg-green-100 text-green-600 rounded-full"><TrendingUp size={20}/></div>
-                    </div>
-                    <div className="mt-4 flex items-center text-xs text-green-500 font-bold">
-                        <ArrowUpRight size={14} className="mr-1"/> +5.2% vs mês anterior
-                    </div>
-                </div>
-                <div className="card p-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-xs font-bold text-muted uppercase">Ticket Médio</p>
-                            <h3 className="text-2xl font-bold mt-1">{formatCurrency(ticketMedio)}</h3>
-                        </div>
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Users size={20}/></div>
-                    </div>
-                    <div className="mt-4 text-xs text-muted">
-                        Baseado em {clientes.length} clientes ativos
-                    </div>
-                </div>
-                <div className="card p-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-xs font-bold text-muted uppercase">Inadimplência Total</p>
-                            <h3 className="text-2xl font-bold mt-1 text-red-500">{formatCurrency(inadimplenciaTotal)}</h3>
-                        </div>
-                        <div className="p-2 bg-red-100 text-red-600 rounded-full"><AlertCircle size={20}/></div>
-                    </div>
-                    <div className="mt-4 flex items-center text-xs text-red-500 font-bold">
-                        <ArrowUpRight size={14} className="mr-1"/> +1.2% vs mês anterior
-                    </div>
-                </div>
-                <div className="card p-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-xs font-bold text-muted uppercase">Eficiência Operacional</p>
-                            <h3 className="text-2xl font-bold mt-1">
-                                {Math.round((statusCount['entregue'] / obrigacoes.length) * 100)}%
-                            </h3>
-                        </div>
-                        <div className="p-2 bg-purple-100 text-purple-600 rounded-full"><CheckSquare size={20}/></div>
-                    </div>
-                    <div className="mt-4 text-xs text-muted">
-                        Obrigações entregues no prazo
-                    </div>
-                </div>
+            {/* TABS NAVIGATION */}
+            <div className="flex gap-2 border-b border-[var(--border-color)] pb-1 overflow-x-auto">
+                <button 
+                    onClick={() => setActiveTab('financial')} 
+                    className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${activeTab === 'financial' ? 'bg-[var(--bg-card)] border border-b-0 border-[var(--border-color)] text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <span className="flex items-center gap-2"><DollarSign size={16}/> Financeiro & Operacional</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('documents')} 
+                    className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${activeTab === 'documents' ? 'bg-[var(--bg-card)] border border-b-0 border-[var(--border-color)] text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                    <span className="flex items-center gap-2"><FolderOpen size={16}/> Auditoria de Documentos</span>
+                </button>
             </div>
 
-            {/* MAIN CHARTS SECTION */}
-            <div className="grid-2-1">
-                <div className="card">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-bold text-lg flex items-center gap-2"><BarChart3 size={18}/> Evolução de Faturamento</h3>
-                        <select className="form-select w-32 h-8 text-xs"><option>Semestral</option><option>Anual</option></select>
+            {/* CONTENT: FINANCIAL TAB */}
+            {activeTab === 'financial' && (
+                <div className="flex flex-col gap-6 animate-fade-in">
+                    <div className="grid-cards">
+                        <div className="card p-4">
+                            <div className="flex justify-between items-start">
+                                <div><p className="text-xs font-bold text-muted uppercase">Receita Recorrente (MRR)</p><h3 className="text-2xl font-bold mt-1">{formatCurrency(totalReceita)}</h3></div>
+                                <div className="p-2 bg-green-100 text-green-600 rounded-full"><TrendingUp size={20}/></div>
+                            </div>
+                        </div>
+                        <div className="card p-4">
+                            <div className="flex justify-between items-start">
+                                <div><p className="text-xs font-bold text-muted uppercase">Inadimplência Total</p><h3 className="text-2xl font-bold mt-1 text-red-500">{formatCurrency(inadimplenciaTotal)}</h3></div>
+                                <div className="p-2 bg-red-100 text-red-600 rounded-full"><AlertCircle size={20}/></div>
+                            </div>
+                        </div>
+                        <div className="card p-4">
+                            <div className="flex justify-between items-start">
+                                <div><p className="text-xs font-bold text-muted uppercase">Documentos Arquivados</p><h3 className="text-2xl font-bold mt-1">{totalDocs}</h3></div>
+                                <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><FileText size={20}/></div>
+                            </div>
+                        </div>
                     </div>
-                    <SimpleBarChart data={dataReceita} />
-                </div>
-                <div className="card">
-                    <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><PieChart size={18}/> Carteira de Clientes</h3>
-                    <DonutChart data={dataRegimes} />
-                    <div className="mt-6 pt-4 border-t border-[var(--border-color)] text-center text-xs text-muted">
-                        Distribuição por Regime Tributário
-                    </div>
-                </div>
-            </div>
 
-             <div className="grid-2-1">
-                <div className="card">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Briefcase size={18}/> Status das Obrigações</h3>
-                    <div className="flex items-center justify-around">
-                        <DonutChart data={dataStatus} />
+                    <div className="grid-2-1">
+                        <div className="card">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-lg flex items-center gap-2"><BarChart3 size={18}/> Evolução de Faturamento</h3>
+                            </div>
+                            <SimpleBarChart data={dataReceita} />
+                        </div>
+                        <div className="card">
+                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><PieChart size={18}/> Carteira de Clientes</h3>
+                            <DonutChart data={dataRegimes} />
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3 className="font-bold text-lg mb-4 text-red-500 flex items-center gap-2"><AlertCircle size={18}/> Top Devedores</h3>
+                        <div className="table-container max-h-60 overflow-y-auto">
+                            <table className="table">
+                                <thead><tr><th>Cliente</th><th>Valor</th></tr></thead>
+                                <tbody>
+                                    {clientes.filter((c:any) => c.valor_honorarios > 2000).slice(0, 5).map((c:any) => (
+                                        <tr key={c.id}>
+                                            <td><div className="font-bold text-sm">{c.nome_fantasia}</div></td>
+                                            <td className="text-red-500 font-bold">{formatCurrency(c.valor_honorarios)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-                 <div className="card">
-                    <h3 className="font-bold text-lg mb-4 text-red-500 flex items-center gap-2"><AlertCircle size={18}/> Top Devedores</h3>
-                    <div className="overflow-y-auto max-h-60">
-                        <table className="table">
-                            <thead><tr><th>Cliente</th><th>Valor</th></tr></thead>
-                            <tbody>
-                                {clientes
-                                    .filter((c:any) => c.valor_honorarios > 2000) // Simulando filtro de risco
-                                    .slice(0, 5)
-                                    .map((c:any) => (
-                                    <tr key={c.id}>
-                                        <td><div className="font-bold text-sm">{c.nome_fantasia}</div></td>
-                                        <td className="text-red-500 font-bold">{formatCurrency(c.valor_honorarios)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            )}
+
+            {/* CONTENT: DOCUMENTS TAB */}
+            {activeTab === 'documents' && (
+                <div className="flex flex-col gap-6 animate-fade-in">
+                    <div className="card">
+                        <div className="card-header-actions">
+                            <h3 className="font-bold text-lg">Registro Geral de Documentos</h3>
+                            <div className="w-64">
+                                <input className="form-input" placeholder="Buscar documento, cliente..." value={docFilter} onChange={e=>setDocFilter(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="table-container">
+                            <table className="table">
+                                <thead><tr><th>Data</th><th>Cliente</th><th>Tipo</th><th>Descrição</th><th>Ação</th></tr></thead>
+                                <tbody>
+                                    {fullDocs.map((doc:any) => (
+                                        <tr key={doc.id}>
+                                            <td>{formatDate(doc.data_upload)}</td>
+                                            <td><strong>{doc.clientName}</strong></td>
+                                            <td><span className="badge badge-primary">{doc.tipo}</span></td>
+                                            <td>{doc.descricao}</td>
+                                            <td><button className="btn btn-sm btn-outline" onClick={()=>alert(`Baixando ${doc.descricao}...`)}><Download size={14}/> Baixar</button></td>
+                                        </tr>
+                                    ))}
+                                    {fullDocs.length === 0 && <tr><td colSpan={5} className="text-center text-muted p-4">Nenhum documento encontrado.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 text-xs text-muted border-t border-[var(--border-color)]">
+                            Total de {fullDocs.length} documentos encontrados no sistema.
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
@@ -759,18 +739,22 @@ const ClientDetail = ({ cliente, obrigacoes, documentos, onBack, onSave, onDelet
                                         {/* Pay Now Button for overdue obligations */}
                                         {ob.status === 'atrasada' && (
                                             <button className="btn btn-sm btn-primary" onClick={() => {
-                                                const paymentLink = `https://pagamento.exemplo.com/${ob.id}`;
-                                                const msg = `Olá ${cliente.responsavel}, segue o link para pagamento da obrigação atrasada ${ob.nome}: ${paymentLink}`;
-                                                if(confirm(`Gerar link de pagamento para ${ob.nome}?\n\nLink simulado: ${paymentLink}`)) {
-                                                    // Simulate sharing options
-                                                    const method = prompt("Enviar via: 1-WhatsApp, 2-Email", "1");
-                                                    if(method === "1") {
-                                                        const phone = cliente.telefone.replace(/\D/g, '');
-                                                        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                                    }
-                                                    else if(method === "2") window.open(`mailto:${cliente.email}?subject=Pagamento&body=${encodeURIComponent(msg)}`);
+                                                const paymentLink = `https://pagamento.contabilapp.com/pay/${ob.id}`;
+                                                const msg = `Olá ${cliente.responsavel}, aqui está o link para pagamento da fatura ${ob.nome} (${ob.competencia}): ${paymentLink}`;
+                                                
+                                                if(confirm(`Link de Pagamento Gerado:\n${paymentLink}\n\nDeseja enviar para o cliente agora?`)) {
+                                                     const method = prompt("Escolha o método de envio:\n1 - WhatsApp\n2 - E-mail", "1");
+                                                     
+                                                     if(method === "1") {
+                                                         const phone = cliente.telefone.replace(/\D/g, '');
+                                                         const waUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`;
+                                                         window.open(waUrl, '_blank');
+                                                     } else if(method === "2") {
+                                                         const mailUrl = `mailto:${cliente.email}?subject=Link de Pagamento - ${cliente.nome_fantasia}&body=${encodeURIComponent(msg)}`;
+                                                         window.location.href = mailUrl;
+                                                     }
                                                 }
-                                            }}><DollarSign size={14}/> Pagar Agora</button>
+                                            }} title="Gerar Link de Pagamento"><DollarSign size={14}/> Pagar Agora</button>
                                         )}
                                     </td>
                                 </tr>
@@ -1178,7 +1162,7 @@ const App = () => {
                 {view === 'client-detail' && <ClientDetail cliente={clientes.find(c=>c.id===detailId)} obrigacoes={obrigacoes.filter(o=>o.cliente_id===detailId)} documentos={documentos.filter(d=>d.cliente_id===detailId)} onBack={()=>setView('clientes')} onSave={handleSaveClient} onDelete={handleDeleteClient} onAddDoc={(d:any)=>setDocumentos([...documentos, d])} onUpdateOb={(id:number, st:string)=>setObrigacoes(obrigacoes.map(o=>o.id===id?{...o, status:st}:o))} />}
                 {view === 'new-client' && <NewClientForm />}
                 {view === 'obrigacoes' && <Obligations obrigacoes={obrigacoes} clientes={clientes} onUpdateStatus={(id:number, st:string)=>setObrigacoes(obrigacoes.map(o=>o.id===id?{...o, status:st}:o))} onGenerateBatch={handleGenerateBatch}/>}
-                {view === 'reports' && <ReportsView clientes={clientes} obrigacoes={obrigacoes} />}
+                {view === 'reports' && <ReportsView clientes={clientes} obrigacoes={obrigacoes} documentos={documentos} />}
                 {view === 'settings' && (
                     <div className="card max-w-lg">
                         <h2 className="font-bold mb-4">Aparência</h2>
