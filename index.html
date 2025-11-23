@@ -53,6 +53,7 @@
           --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
           --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       }
 
       [data-theme="light"] {
@@ -96,6 +97,39 @@
 
       a, button { cursor: pointer; user-select: none; }
       ul { list-style: none; }
+
+      /* =========================================
+         LOGIN SPECIFIC
+         ========================================= */
+      .login-bg {
+          background-color: var(--bg-body);
+          background-image: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+          background-size: 100% 100%;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem; /* Ensures card doesn't touch edges on mobile */
+      }
+      
+      .login-card {
+          background-color: var(--bg-card);
+          border: 1px solid var(--border-color);
+          border-radius: 16px; /* More rounded for modern look */
+          box-shadow: var(--shadow-xl);
+          width: 100%;
+          max-width: 400px;
+          padding: 2.5rem;
+          position: relative;
+          overflow: hidden;
+      }
+      
+      .login-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; height: 4px;
+          background: linear-gradient(90deg, var(--primary), #8b5cf6);
+      }
 
       /* =========================================
          LAYOUT STRUCTURE
